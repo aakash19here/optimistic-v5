@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Toaster } from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 type Todo = {
   id: number;
@@ -11,27 +12,34 @@ let id = 0;
 export default function App() {
   const [input, setInput] = useState("");
 
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [todos] = useState<Todo[]>([]);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    await new Promise((resolve, reject) => setTimeout(resolve, 200));
-    id = id + 1;
-    setTodos((prevTodo) => [
-      ...prevTodo,
-      {
-        id: id,
-        title: input,
-        isCompleted: false,
-      },
-    ]);
-    setInput("");
-  };
+  const { mutate, variables, isPending } = useMutation({
+    mutationFn: async (todo: Todo) => {
+      await new Promise((resolve, reject) => setTimeout(resolve, 1000));
+      todos.push(todo);
+      setInput("");
+    },
+    onError: () => {
+      toast.error("DB Store failed");
+    },
+  });
+
+  const { data } = useQuery({
+    queryKey: ["todo"],
+    queryFn: () => todos,
+  });
 
   return (
     <>
       <Toaster />
-      <form className="max-w-7xl mx-auto my-[10%] flex" onSubmit={handleSubmit}>
+      <form
+        className="max-w-7xl mx-auto my-[10%] flex"
+        onSubmit={(e) => {
+          e.preventDefault();
+          mutate({ id: (id = id + 1), title: input });
+        }}
+      >
         <input
           placeholder="Write a todo"
           value={input}
@@ -40,11 +48,16 @@ export default function App() {
         <button type="submit">Add Todo</button>
       </form>
       <div className="max-w-7xl mx-auto">
-        {todos?.map((t) => (
+        {data?.map((t) => (
           <p key={t.id}>
             {t.id}-{t.title}
           </p>
         ))}
+        {isPending && (
+          <p className="opacity-50">
+            {variables.id} -{variables.title}
+          </p>
+        )}
       </div>
     </>
   );
